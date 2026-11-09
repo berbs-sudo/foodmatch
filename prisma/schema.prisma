@@ -1,0 +1,164 @@
+// Prisma Schema - FoodMatch (Tinder + iFood)
+// Modelagem Relacional para Conexão de Pessoas por Afinidades Gastronômicas
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./foodmatch.db"
+}
+
+model User {
+  id                   Int               @id @default(autoincrement())
+  nome                 String
+  email                String            @unique
+  senha                String
+  idade                Int
+  bio                  String
+  fotoPerfil           String            @map("foto_perfil")
+  fotosJson            String?           @map("fotos_json")
+  cidade               String            @default("Lages - SC")
+  profissao            String?
+  pratoFavorito        String?           @map("prato_favorito")
+  restauranteFavorito  String?           @map("restaurante_favorito")
+  desejoDoDia          String?           @map("desejo_do_dia")
+  preferenciasJson     String?           @map("preferencias_json")
+  lastLoginAt          DateTime?         @map("last_login_at")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  preferencias         UserPreference[]
+  matchesComoUser1     Match[]           @relation("User1Matches")
+  matchesComoUser2     Match[]           @relation("User2Matches")
+  mensagensEnviadas    Message[]
+  convitesFeitos       DateInvite[]      @relation("InvitesSent")
+  convitesRecebidos    DateInvite[]      @relation("InvitesReceived")
+  loginLogs            LoginLog[]
+
+  @@map("usuarios")
+}
+
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  email     String
+  metodo    String   @default("PASSWORD") // PASSWORD, REGISTER, QUICK_LOGIN
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("historico_logins")
+}
+
+model GastronomicCategory {
+  id        Int              @id @default(autoincrement())
+  nome      String           @unique // Ex: Italiana, Japonesa, Vegana, Hambúrguer
+  icone     String
+  usuarios  UserPreference[]
+  restaurantes Restaurant[]
+
+  @@map("categorias_gastronomicas")
+}
+
+model UserPreference {
+  id          Int                 @id @default(autoincrement())
+  userId      Int                 @map("user_id")
+  categoriaId Int                 @map("categoria_id")
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoria   GastronomicCategory @relation(fields: [categoriaId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoriaId])
+  @@map("usuarios_preferencias")
+}
+
+model Restaurant {
+  id           Int                 @id @default(autoincrement())
+  nome         String
+  descricao    String
+  categoriaId  Int                 @map("categoria_id")
+  faixaPreco   String              @map("faixa_preco") // $, $$, $$$, $$$$
+  avaliacao    Float               @default(5.0)
+  distanciaKm  Float               @default(1.5) @map("distancia_km")
+  imagemUrl    String              @map("imagem_url")
+  endereco     String
+  horario      String
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  categoria    GastronomicCategory @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  cardapio     MenuItem[]
+  convites     DateInvite[]
+
+  @@map("restaurantes")
+}
+
+model MenuItem {
+  id            Int        @id @default(autoincrement())
+  restauranteId Int        @map("restaurante_id")
+  nome          String
+  descricao     String
+  preco         Float
+  imagemUrl     String?    @map("imagem_url")
+  emDestaque    Boolean    @default(false) @map("em_destaque")
+
+  restaurante   Restaurant @relation(fields: [restauranteId], references: [id], onDelete: Cascade)
+
+  @@map("cardapio_itens")
+}
+
+model Match {
+  id          Int          @id @default(autoincrement())
+  user1Id     Int          @map("user1_id")
+  user2Id     Int          @map("user2_id")
+  status      String       @default("ACTIVE") // ACTIVE, UNMATCHED
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  user1       User         @relation("User1Matches", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2       User         @relation("User2Matches", fields: [user2Id], references: [id], onDelete: Cascade)
+  mensagens   Message[]
+  convites    DateInvite[]
+
+  @@unique([user1Id, user2Id])
+  @@map("matches")
+}
+
+model Message {
+  id          Int         @id @default(autoincrement())
+  matchId     Int         @map("match_id")
+  senderId    Int         @map("sender_id")
+  texto       String
+  tipo        String      @default("TEXT") // TEXT, INVITE
+  inviteId    Int?        @map("invite_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  match       Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender      User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  convite     DateInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@map("mensagens")
+}
+
+model DateInvite {
+  id             Int         @id @default(autoincrement())
+  matchId        Int         @map("match_id")
+  restauranteId  Int         @map("restaurante_id")
+  inviterId      Int         @map("inviter_id")
+  inviteeId      Int         @map("inviteeId")
+  dataEncontro   DateTime    @map("data_encontro")
+  horario        String
+  mensagem       String?
+  status         String      @default("PENDING") // PENDING, ACCEPTED, REJECTED, RESCHEDULED
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  match          Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  restaurante    Restaurant  @relation(fields: [restauranteId], references: [id], onDelete: Restrict)
+  inviter        User        @relation("InvitesSent", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee        User        @relation("InvitesReceived", fields: [inviteeId], references: [id], onDelete: Cascade)
+  mensagens      Message[]
+
+  @@map("convites_encontro")
+}
