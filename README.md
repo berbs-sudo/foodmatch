@@ -13,8 +13,7 @@ Projeto desenvolvido para a disciplina de **Laboratório de Programação** do c
 ---
 
 ## 👥 Autores (Dupla)
-* **Bernardo Luciano Luiz Rodrigues** — *Backend, Modelagem Relacional (Prisma/PostgreSQL) & Docker*
-* **Debora De Souza** — *Frontend React (Mobile-First, Swipe UX/UI), Integração de API & Documentação*
+* **Bernardo Luciano Luiz Rodrigues** **&** **Debora De Souza**
 
 ---
 
